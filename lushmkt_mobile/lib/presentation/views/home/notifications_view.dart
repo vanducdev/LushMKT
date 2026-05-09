@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../controllers/settings_controller.dart';
+import '../../controllers/social_controller.dart';
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({super.key});
@@ -9,141 +11,101 @@ class NotificationsView extends StatefulWidget {
 }
 
 class _NotificationsViewState extends State<NotificationsView> {
-  // Mock notifications matching the database/seeder data
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'id': 1,
-      'title': 'Khuyến mãi nạp thẻ tự động 10%',
-      'content': 'Hệ thống đang áp dụng chương trình khuyến mãi tặng thêm 10% giá trị nạp tiền qua tài khoản VietQR ngân hàng tự động MB Bank.',
-      'type': 'promo',
-      'is_read': false,
-      'time': 'Vừa xong'
-    },
-    {
-      'id': 2,
-      'title': 'Đơn hàng buff hoàn thành',
-      'content': 'Yêu cầu tăng 1000 Like Facebook bài viết của bạn đã được hệ thống phân phối hoàn thành 100%.',
-      'type': 'order',
-      'is_read': true,
-      'time': '2 giờ trước'
-    },
-    {
-      'id': 3,
-      'title': 'Cập nhật hệ thống an toàn',
-      'content': 'LushMKT đã hoàn thành bảo trì định kỳ cụm máy chủ Proxy IPv4 giúp cải thiện 50% băng thông tải dữ liệu.',
-      'type': 'system',
-      'is_read': true,
-      'time': '1 ngày trước'
-    }
-  ];
+  final SettingsController _settingsController = Get.find<SettingsController>();
+  final SocialController _socialController = Get.find<SocialController>();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('THÔNG BÁO HỆ THỐNG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
-        backgroundColor: const Color(0xFF0D0F14),
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-          onPressed: () => Get.back(),
-        ),
-      ),
-      body: Stack(
-        children: [
-          Container(color: const Color(0xFF0D0F14)),
-          
-          SafeArea(
-            child: ListView.builder(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(20),
-              itemCount: _notifications.length,
-              itemBuilder: (context, index) {
-                final notif = _notifications[index];
-                IconData icon;
-                Color iconColor;
-                
-                switch (notif['type']) {
-                  case 'promo':
-                    icon = Icons.star_outline_rounded;
-                    iconColor = const Color(0xFF00E5FF);
-                    break;
-                  case 'order':
-                    icon = Icons.check_circle_outline_rounded;
-                    iconColor = Colors.green;
-                    break;
-                  default:
-                    icon = Icons.info_outline;
-                    iconColor = const Color(0xFF7000FF);
-                }
+    return Obx(() {
+      final isDark = _settingsController.isDarkMode.value;
+      final Color textColor = isDark ? Colors.white : Colors.black87;
+      final Color cardBg = isDark ? const Color(0xFF161B22) : Colors.white;
+      final list = _socialController.notifications;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF161B22),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: notif['is_read'] ? Colors.white.withOpacity(0.02) : const Color(0xFF00E5FF).withOpacity(0.2),
-                      width: 1,
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0D0F14) : const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: Text(
+            'THÔNG BÁO HỘP THƯ',
+            style: _settingsController.getTextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+          ),
+          backgroundColor: isDark ? const Color(0xFF0D0F14) : Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
+            onPressed: () => Get.back(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _socialController.markAllAsRead();
+                Get.snackbar('Thành Công', 'Đã đánh dấu tất cả là đã đọc.', snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.green, colorText: Colors.white);
+              },
+              child: Text('ĐỌC TẤT CẢ', style: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00E5FF))),
+            )
+          ],
+        ),
+        body: list.isEmpty
+            ? Center(
+                child: Text('Không có thông báo nào.', style: _settingsController.getTextStyle(fontSize: 13, color: Colors.grey)),
+              )
+            : ListView.builder(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: list.length,
+                itemBuilder: (context, index) {
+                  final notif = list[index];
+                  IconData icon = Icons.info_outline;
+                  Color iconColor = Colors.blueAccent;
+
+                  if (notif.type == 'deposit') {
+                    icon = Icons.account_balance_wallet_outlined;
+                    iconColor = Colors.green;
+                  } else if (notif.type == 'post') {
+                    icon = Icons.post_add_outlined;
+                    iconColor = const Color(0xFF00E5FF);
+                  } else if (notif.type == 'like') {
+                    icon = Icons.favorite_outline_rounded;
+                    iconColor = Colors.redAccent;
+                  }
+
+                  return Card(
+                    color: cardBg,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: notif.isRead ? Colors.transparent : const Color(0xFF00E5FF).withOpacity(0.15)),
                     ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0D0F14),
-                          shape: BoxShape.circle,
-                        ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: iconColor.withOpacity(0.12),
                         child: Icon(icon, color: iconColor, size: 20),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  notif['time'],
-                                  style: const TextStyle(color: Colors.grey, fontSize: 10),
-                                ),
-                                if (!notif['is_read'])
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF00E5FF),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  )
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              notif['title'],
-                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              notif['content'],
-                              style: const TextStyle(color: Colors.grey, fontSize: 11, height: 1.4),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                );
-              },
-            ),
-          )
-        ],
-      ),
-    );
+                      title: Text(notif.title, style: _settingsController.getTextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+                      subtitle: Text(notif.body, style: _settingsController.getTextStyle(fontSize: 11, color: textColor.withOpacity(0.6))),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Vừa xong', style: _settingsController.getTextStyle(fontSize: 9, color: Colors.grey)),
+                          const SizedBox(height: 4),
+                          if (!notif.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(color: Color(0xFF00E5FF), shape: BoxShape.circle),
+                            )
+                        ],
+                      ),
+                      onTap: () {
+                        setState(() {
+                          notif.isRead = true;
+                        });
+                      },
+                    ),
+                  );
+                },
+              ),
+      );
+    });
   }
 }

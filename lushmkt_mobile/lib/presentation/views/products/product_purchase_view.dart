@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lushmkt_mobile/data/models/product_model.dart';
-import '../../controllers/cart_controller.dart';
+import '../../controllers/settings_controller.dart';
+import '../../controllers/social_controller.dart';
+import '../../controllers/auth_controller.dart';
+import '../../../data/models/social_models.dart';
 
 class ProductPurchaseView extends StatefulWidget {
   const ProductPurchaseView({super.key});
@@ -11,332 +13,391 @@ class ProductPurchaseView extends StatefulWidget {
 }
 
 class _ProductPurchaseViewState extends State<ProductPurchaseView> {
-  final CartController _cartController = Get.put(CartController());
-  
-  String _searchQuery = '';
-  String _selectedCategory = 'VIA Facebook';
+  final SettingsController _settingsController = Get.find<SettingsController>();
+  final SocialController _socialController = Get.find<SocialController>();
+  final AuthController _authController = Get.find<AuthController>();
 
-  final List<String> _categories = [
-    'VIA Facebook',
-    'Gmail',
-    'Proxy',
-    'Discord Token',
-    'Cookie',
-  ];
+  final _searchController = TextEditingController();
+  String _selectedCategory = 'Tất cả';
 
-  final List<ProductModel> _allProducts = [
-    ProductModel(id: 1, name: 'VIA Facebook Cổ kháng 2FA', price: 45000, stock: 124, category: 'VIA Facebook', description: 'Tài khoản FB từ 2012-2020 chất lượng cao.', rating: 4.8, reviewCount: 42),
-    ProductModel(id: 2, name: 'VIA FB Ngoại cổ ngâm lâu', price: 65000, stock: 45, category: 'VIA Facebook', description: 'Bao login sạch, IP ngoại kháng spam cực tốt.', rating: 4.9, reviewCount: 18),
-    ProductModel(id: 3, name: 'Gmail Ngoại Cổ (Đã ngâm 1 năm)', price: 8500, stock: 430, category: 'Gmail', description: 'Gmail cổ ngâm, đã ver Phone sạch.', rating: 4.7, reviewCount: 95),
-    ProductModel(id: 4, name: 'Gmail New Reg tay sạch', price: 4200, stock: 999, category: 'Gmail', description: 'Gmail mới đăng ký thủ công, bảo hành 1-1.', rating: 4.5, reviewCount: 120),
-    ProductModel(id: 5, name: 'Proxy IPv4 Sạch Tốc độ cao', price: 22000, stock: 99, category: 'Proxy', description: 'Proxy IPv4 Việt Nam hạn sử dụng 30 ngày.', rating: 4.6, reviewCount: 37),
-    ProductModel(id: 6, name: 'Discord Token Full Ver Cổ', price: 15000, stock: 80, category: 'Discord Token', description: 'Token Discord cổ kháng quét tốt nhất.', rating: 4.9, reviewCount: 12),
-    ProductModel(id: 7, name: 'Cookie Facebook Nuôi Cứng', price: 5000, stock: 500, category: 'Cookie', description: 'Định dạng Cookie dùng cho tool nuôi an toàn.', rating: 4.4, reviewCount: 22),
-  ];
+  // Forms controllers for adding/editing products
+  final _prodNameController = TextEditingController();
+  final _prodDescController = TextEditingController();
+  final _prodTypeController = TextEditingController();
+  final _prodCategoryController = TextEditingController();
+  final _prodPriceController = TextEditingController();
+  final _prodFileUrlController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    // Filtered products list
-    final filteredProducts = _allProducts.where((p) {
-      final matchesSearch = p.name.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesCategory = p.category == _selectedCategory;
-      return matchesSearch && matchesCategory;
-    }).toList();
+    return Obx(() {
+      final isDark = _settingsController.isDarkMode.value;
+      final Color textColor = isDark ? Colors.white : Colors.black87;
+      final Color cardColor = isDark ? const Color(0xFF161B22) : Colors.white;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('CỬA HÀNG TÀI NGUYÊN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
-        backgroundColor: const Color(0xFF0D0F14),
-        elevation: 0,
-        actions: [
-          // Shopping cart badge icon
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Stack(
+      // Filter products
+      final filteredProducts = _socialController.storeProducts.where((p) {
+        final matchesSearch = p.name.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+            p.description.toLowerCase().contains(_searchController.text.toLowerCase());
+        final matchesCategory = _selectedCategory == 'Tất cả' || p.category == _selectedCategory;
+        return matchesSearch && matchesCategory;
+      }).toList();
+
+      return Scaffold(
+        backgroundColor: isDark ? const Color(0xFF0D0F14) : const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: Text(
+            'LushMKT STORE',
+            style: _settingsController.getTextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+          ),
+          backgroundColor: isDark ? const Color(0xFF0D0F14) : Colors.white,
+          elevation: 0,
+          actions: [
+            ElevatedButton.icon(
+              onPressed: () => _showAddProductDialog(context),
+              icon: const Icon(Icons.add_circle_outline, size: 16),
+              label: const Text('ĐĂNG BÁN'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00E5FF),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                textStyle: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 16),
+          ],
+        ),
+        body: Column(
+          children: [
+            // 1. SEARCH & CATEGORY FILTER HEADER
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF00E5FF)),
-                    onPressed: _showCartBottomSheet,
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (val) => setState(() {}),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search, color: Color(0xFF00E5FF)),
+                      hintText: 'Tìm kiếm phần mềm, scripts, tools...',
+                      hintStyle: _settingsController.getTextStyle(fontSize: 12, color: Colors.grey),
+                      fillColor: cardColor,
+                    ),
+                    style: _settingsController.getTextStyle(fontSize: 13, color: textColor),
                   ),
-                  Obx(() => _cartController.totalCartCount > 0
-                      ? Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
-                            constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                            child: Text(
-                              '${_cartController.totalCartCount}',
-                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        )
-                      : const SizedBox()),
+                  const SizedBox(height: 12),
+                  _buildCategoryFilterRow(textColor),
                 ],
               ),
             ),
-          )
-        ],
-      ),
-      body: Stack(
-        children: [
-          Container(color: const Color(0xFF0D0F14)),
-          
-          SafeArea(
-            child: Column(
-              children: [
-                // 1. Search Bar Input
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Tìm kiếm tài nguyên MMO...',
-                      hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search, color: Color(0xFF00E5FF)),
-                      filled: true,
-                      fillColor: const Color(0xFF161B22),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.04)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF00E5FF)),
-                      ),
-                    ),
-                    onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                      });
-                    },
-                  ),
-                ),
 
-                // 2. Category Tab Filters Slider
-                SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final cat = _categories[index];
-                      final isSelected = cat == _selectedCategory;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = cat;
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFF161B22),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.04)),
+            // 2. STUNNING DIGITAL PRODUCTS LIST
+            Expanded(
+              child: filteredProducts.isEmpty
+                  ? Center(child: Text('Không tìm thấy sản phẩm nào.', style: _settingsController.getTextStyle(fontSize: 13, color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: filteredProducts.length,
+                      itemBuilder: (context, index) {
+                        final prod = filteredProducts[index];
+                        final isMyProduct = prod.authorName == (_authController.currentUser.value?.name ?? '');
+
+                        return Card(
+                          color: cardColor,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.04)),
                           ),
-                          child: Center(
-                            child: Text(
-                              cat,
-                              style: TextStyle(
-                                color: isSelected ? Colors.black : Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _buildFileTypeBadge(prod.fileType),
+                                    Text(
+                                      prod.category.toUpperCase(),
+                                      style: _settingsController.getTextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF00E5FF)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(prod.name, style: _settingsController.getTextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor)),
+                                const SizedBox(height: 6),
+                                Text(
+                                  prod.description,
+                                  style: _settingsController.getTextStyle(fontSize: 12, color: Colors.grey),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 12),
+                                Divider(color: isDark ? Colors.white10 : Colors.black10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('GIÁ BÁN', style: _settingsController.getTextStyle(fontSize: 9, color: Colors.grey)),
+                                        Text(
+                                          prod.price > 0 ? '${prod.price.toInt()}đ' : 'MIỄN PHÍ',
+                                          style: _settingsController.getTextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF00E5FF)),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        if (isMyProduct) ...[
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_note, color: Colors.orangeAccent),
+                                            onPressed: () => _showEditProductDialog(context, prod),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
+                                            onPressed: () => _socialController.deleteStoreProduct(prod.id),
+                                          ),
+                                        ],
+                                        ElevatedButton(
+                                          onPressed: () => _showProductDetailsDialog(context, prod),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          child: Text('CHI TIẾT', style: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor)),
+                                        ),
+                                      ],
+                                    )
+                                  ],
+                                )
+                              ],
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 3. Products Grid View
-                Expanded(
-                  child: filteredProducts.isEmpty
-                      ? const Center(child: Text('Không tìm thấy tài nguyên nào phù hợp.', style: TextStyle(color: Colors.grey)))
-                      : GridView.builder(
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.85,
-                            crossAxisSpacing: 14,
-                            mainAxisSpacing: 14,
-                          ),
-                          itemCount: filteredProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = filteredProducts[index];
-                            return _buildProductCard(product);
-                          },
-                        ),
-                )
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  // Beautiful Product Card Helper
-  Widget _buildProductCard(ProductModel product) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.04)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFF0D0F14), borderRadius: BorderRadius.circular(4)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 10),
-                    const SizedBox(width: 2),
-                    Text('${product.rating}', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              Text('Còn: ${product.stock}', style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product.description,
-                  style: const TextStyle(color: Colors.grey, fontSize: 9),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const Divider(color: Colors.white10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${product.price.toInt()}đ',
-                style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add_shopping_cart, color: Color(0xFF00E5FF), size: 18),
-                onPressed: () {
-                  _cartController.addProduct(product, 1);
-                  Get.snackbar(
-                    'Đã Thêm Vào Giỏ',
-                    'Đã thêm 1 x ${product.name} vào giỏ hàng.',
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: const Color(0xFF161B22),
-                    colorText: Colors.white,
-                  );
-                },
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  // Shopping Cart Bottom Sheet Helper
-  void _showCartBottomSheet() {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Color(0xFF161B22),
-          borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'GIỎ HÀNG CỦA BẠN',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1),
-            ),
-            const SizedBox(height: 16),
-            Obx(() => _cartController.cartItems.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(child: Text('Giỏ hàng trống.', style: TextStyle(color: Colors.grey))),
-                  )
-                : SizedBox(
-                    height: 150,
-                    child: ListView.builder(
-                      itemCount: _cartController.cartItems.length,
-                      itemBuilder: (context, index) {
-                        final item = _cartController.cartItems[index];
-                        return ListTile(
-                          title: Text(item.product.name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                          subtitle: Text('Số lượng: ${item.quantity}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                          trailing: Text('${item.totalCost.toInt()}đ', style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.bold)),
                         );
                       },
                     ),
-                  )),
-            const Divider(color: Colors.white10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('TỔNG THANH TOÁN:', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
-                Obx(() => Text(
-                  '${_cartController.totalCartPrice.toInt()}đ',
-                  style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 16, fontWeight: FontWeight.bold),
-                ))
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  Get.back();
-                  _cartController.clearCart();
-                  Get.snackbar(
-                    'Mua Thành Công',
-                    'Đơn hàng của bạn đã được thanh toán và giao hàng tự động thành công.',
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: Colors.green,
-                    colorText: Colors.white,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00E5FF),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('THANH TOÁN NGAY', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
             )
           ],
         ),
+      );
+    });
+  }
+
+  // File type design badges
+  Widget _buildFileTypeBadge(String type) {
+    Color badgeColor = Colors.grey;
+    if (type == '.exe') badgeColor = Colors.blueAccent;
+    if (type == '.py') badgeColor = Colors.green;
+    if (type == '.ipa') badgeColor = Colors.purpleAccent;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
       ),
+      child: Text(
+        type.toUpperCase(),
+        style: _settingsController.getTextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor),
+      ),
+    );
+  }
+
+  // Category filter list
+  Widget _buildCategoryFilterRow(Color textColor) {
+    final categories = ['Tất cả', 'Tool Nuôi Account', 'Python Scripts', 'iOS Applications'];
+    return SizedBox(
+      height: 38,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          final isSelected = _selectedCategory == cat;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ChoiceChip(
+              label: Text(cat, style: _settingsController.getTextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.black : textColor)),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedCategory = cat;
+                });
+              },
+              selectedColor: const Color(0xFF00E5FF),
+              backgroundColor: _settingsController.isDarkMode.value ? const Color(0xFF161B22) : Colors.white,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Details dialog
+  void _showProductDetailsDialog(BuildContext context, DigitalResourceModel prod) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _settingsController.isDarkMode.value ? const Color(0xFF161B22) : Colors.white,
+          title: Text(prod.name, style: _settingsController.getTextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Mô tả chi tiết:', style: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 6),
+                Text(prod.description, style: _settingsController.getTextStyle(fontSize: 13)),
+                const SizedBox(height: 16),
+                Text('Định dạng:', style: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 4),
+                _buildFileTypeBadge(prod.fileType),
+                const SizedBox(height: 16),
+                Text('Tác giả:', style: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 4),
+                Text(prod.authorName, style: _settingsController.getTextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Text('Đường dẫn tải xuống (Download Link):', style: _settingsController.getTextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 4),
+                Text(prod.fileUrl ?? 'N/A', style: _settingsController.getTextStyle(fontSize: 12, color: const Color(0xFF00E5FF))),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('ĐÓNG', style: _settingsController.getTextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: () => Get.back(),
+            )
+          ],
+        );
+      },
+    );
+  }
+
+  // Add Product Dialog Form
+  void _showAddProductDialog(BuildContext context) {
+    _prodNameController.clear();
+    _prodDescController.clear();
+    _prodTypeController.text = '.exe';
+    _prodCategoryController.text = 'Tool Nuôi Account';
+    _prodPriceController.clear();
+    _prodFileUrlController.clear();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _settingsController.isDarkMode.value ? const Color(0xFF161B22) : Colors.white,
+          title: Text('ĐĂNG BÁN SẢN PHẨM MỚI', style: _settingsController.getTextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(controller: _prodNameController, decoration: const InputDecoration(labelText: 'Tên sản phẩm')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodDescController, decoration: const InputDecoration(labelText: 'Mô tả chi tiết')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodTypeController, decoration: const InputDecoration(labelText: 'Định dạng (Ví dụ: .exe, .py, .ipa)')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodCategoryController, decoration: const InputDecoration(labelText: 'Danh mục')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodPriceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Giá bán (VND)')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodFileUrlController, decoration: const InputDecoration(labelText: 'Đường dẫn file (Download Link)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('HỦY', style: _settingsController.getTextStyle(fontSize: 12, color: Colors.redAccent)),
+              onPressed: () => Get.back(),
+            ),
+            TextButton(
+              child: Text('ĐĂNG BÁN', style: _settingsController.getTextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                final name = _prodNameController.text.trim();
+                final price = double.tryParse(_prodPriceController.text) ?? 0.0;
+
+                if (name.isEmpty) return;
+
+                _socialController.addStoreProduct(
+                  name: name,
+                  description: _prodDescController.text,
+                  fileType: _prodTypeController.text,
+                  category: _prodCategoryController.text,
+                  price: price,
+                  fileUrl: _prodFileUrlController.text,
+                );
+                Get.back();
+              },
+            )
+          ],
+        );
+      },
+    );
+  }
+
+  // Edit Product Dialog Form
+  void _showEditProductDialog(BuildContext context, DigitalResourceModel prod) {
+    _prodNameController.text = prod.name;
+    _prodDescController.text = prod.description;
+    _prodTypeController.text = prod.fileType;
+    _prodCategoryController.text = prod.category;
+    _prodPriceController.text = prod.price.toInt().toString();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _settingsController.isDarkMode.value ? const Color(0xFF161B22) : Colors.white,
+          title: Text('SỬA THÔNG TIN SẢN PHẨM', style: _settingsController.getTextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(controller: _prodNameController, decoration: const InputDecoration(labelText: 'Tên sản phẩm')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodDescController, decoration: const InputDecoration(labelText: 'Mô tả chi tiết')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodTypeController, decoration: const InputDecoration(labelText: 'Định dạng')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodCategoryController, decoration: const InputDecoration(labelText: 'Danh mục')),
+                const SizedBox(height: 12),
+                TextField(controller: _prodPriceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Giá bán (VND)')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('HỦY', style: _settingsController.getTextStyle(fontSize: 12, color: Colors.redAccent)),
+              onPressed: () => Get.back(),
+            ),
+            TextButton(
+              child: Text('CẬP NHẬT', style: _settingsController.getTextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                final name = _prodNameController.text.trim();
+                final price = double.tryParse(_prodPriceController.text) ?? 0.0;
+
+                if (name.isEmpty) return;
+
+                _socialController.updateStoreProduct(
+                  prod.id,
+                  name: name,
+                  description: _prodDescController.text,
+                  fileType: _prodTypeController.text,
+                  category: _prodCategoryController.text,
+                  price: price,
+                );
+                Get.back();
+              },
+            )
+          ],
+        );
+      },
     );
   }
 }
